@@ -19,9 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peers/replace_boost_box.h" // BoostsForGift.
 #include "boxes/premium_preview_box.h" // ShowPremiumPreviewBox.
 #include "boxes/star_gift_box.h" // ShowStarGiftBox.
-#include "boxes/star_gift_preview_box.h" // StarGiftPreviewBox.
 #include "core/ui_integration.h"
-#include "data/components/gift_auctions.h"
 #include "data/data_boosts.h"
 #include "data/data_changes.h"
 #include "data/data_channel.h"
@@ -482,63 +480,16 @@ void AddUniqueGiftPropertyRows(
 			kTooltipDuration);
 	};
 
-	struct VariantsList {
-		rpl::variable<Data::UniqueGiftAttributes> attributes;
-		bool requested = false;
-		bool inited = false;
-		rpl::lifetime clickLifetime;
-	};
-	const auto variants = container->lifetime().make_state<VariantsList>();
-
-	const auto session = &unique->model.document->session();
-	const auto giftId = unique->initialGiftId;
-	const auto initVariants = [=] {
-		if (variants->requested || variants->inited) {
-			return;
-		}
-		const auto auctions = &session->giftAuctions();
-		if (auto attributes = auctions->attributes(giftId)) {
-			variants->inited = true;
-			variants->attributes = std::move(*attributes);
-		} else {
-			variants->requested = true;
-			auctions->requestAttributes(giftId, crl::guard(container, [=] {
-				variants->inited = true;
-				variants->attributes.force_assign(
-					*auctions->attributes(giftId));
-			}));
-		}
-	};
-
-	const auto title = unique->title;
 	const auto showRarity = [=](Data::GiftAttributeId id) {
 		return [=](
 				not_null<Ui::RpWidget*> widget,
 				int rarityPermille) {
-			initVariants();
-
-			const auto weak = base::make_weak(widget);
-			variants->clickLifetime = variants->attributes.value(
-			) | rpl::filter([=] {
-				return variants->inited;
-			}) | rpl::take(1) | rpl::on_next([=](
-					const Data::UniqueGiftAttributes &list) {
-				if (!list.models.empty()) {
-					show->show(Box(
-						Ui::StarGiftPreviewBox,
-						title,
-						list,
-						id.type,
-						unique));
-				} else if (const auto widget = weak.get()) {
-					const auto percent = Data::UniqueGiftAttributeText(
-						{ .rarityValue = rarityPermille });
-					showTooltip(widget, tr::lng_gift_unique_rarity(
-						lt_percent,
-						rpl::single(tr::marked(percent)),
-						tr::marked));
-				}
-			});
+			const auto percent = Data::UniqueGiftAttributeText(
+				{ .rarityValue = rarityPermille });
+			showTooltip(widget, tr::lng_gift_unique_rarity(
+				lt_percent,
+				rpl::single(tr::marked(percent)),
+				tr::marked));
 		};
 	};
 	const auto empty = std::vector<Data::UniqueGiftAttribute>();

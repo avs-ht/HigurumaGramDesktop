@@ -20,8 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/channel_statistics/boosts/info_boosts_widget.h"
 #include "info/info_controller.h"
 #include "info/profile/info_profile_icon.h"
-#include "info/statistics/info_statistics_inner_widget.h" // FillLoading.
-#include "info/statistics/info_statistics_list_controllers.h"
+#include "info/statistics/info_statistics_list_controllers.h" // FillLoading.
 #include "lang/lang_keys.h"
 #include "settings/settings_credits_graphics.h"
 #include "statistics/widgets/chart_header_widget.h"

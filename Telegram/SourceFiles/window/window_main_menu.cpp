@@ -390,24 +390,17 @@ MainMenu::MainMenu(
 
 	parentResized();
 
-	_telegram->setMarkedText(tr::link(
-		u"AyuGram Desktop"_q,
-		u"https://ayugram.one"_q));
+	_telegram->setMarkedText(TextWithEntities{ u"HigurumaGram Desktop"_q });
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
-		tr::link(
-			tr::lng_settings_current_version(
-				tr::now,
-				lt_version,
-				currentVersionText()),
-			1) // Link 1.
+		TextWithEntities{ tr::lng_settings_current_version(
+			tr::now,
+			lt_version,
+			currentVersionText()) }
 		.append(QChar(' '))
 		.append(QChar(8211))
 		.append(QChar(' '))
 		.append(tr::link(tr::lng_menu_about(tr::now), 2))); // Link 2.
-	_version->setLink(
-		1,
-		std::make_shared<UrlClickHandler>(Core::App().changelogLink()));
 	_version->setLink(
 		2,
 		std::make_shared<LambdaClickHandler>([=] {

@@ -168,10 +168,8 @@ public:
 		Stories,
 		SavedMusic,
 		PollResults,
-		Statistics,
 		BotStarRef,
 		Boosts,
-		ChannelEarn,
 		BotEarn,
 	};
 	using SettingsType = ::Settings::Type;

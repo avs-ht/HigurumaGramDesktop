@@ -22,8 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/channel_statistics/earn/earn_format.h"
 #include "info/info_controller.h"
 #include "info/info_memento.h"
-#include "info/statistics/info_statistics_inner_widget.h" // FillLoading.
-#include "info/statistics/info_statistics_list_controllers.h"
+#include "info/statistics/info_statistics_list_controllers.h" // FillLoading.
 #include "lang/lang_keys.h"
 #include "main/main_account.h"
 #include "main/main_session.h"

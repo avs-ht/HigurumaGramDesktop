@@ -15,6 +15,7 @@
 #include "storage/storage_domain.h"
 #include "styles/style_settings.h"
 #include "ui/layers/generic_box.h"
+#include "ui/rp_widget.h"
 #include "ui/widgets/fields/password_input.h"
 #include "ui/widgets/labels.h"
 #include "window/window_session_controller.h"
@@ -90,11 +91,19 @@ void PromptUnlock(
 	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
 		box->setTitle(rpl::single(QString::fromUtf8("Locked chat")));
 
-		const auto field = box->addRow(
-			object_ptr<Ui::PasswordInput>(
-				box,
-				st::defaultInputField,
-				rpl::single(QString::fromUtf8("Passcode"))));
+		auto fieldWrap = object_ptr<Ui::RpWidget>(box);
+		const auto fieldContainer = fieldWrap.data();
+		const auto field = Ui::CreateChild<Ui::PasswordInput>(
+			fieldContainer,
+			st::defaultInputField,
+			rpl::single(QString::fromUtf8("Passcode")));
+		fieldContainer->resize(fieldContainer->width(), field->height());
+		fieldContainer->geometryValue(
+		) | rpl::on_next([=](const QRect &r) {
+			field->resize(r.width(), field->height());
+			field->moveToLeft(0, 0);
+		}, fieldContainer->lifetime());
+		box->addRow(std::move(fieldWrap));
 
 		const auto error = box->addRow(
 			object_ptr<Ui::FlatLabel>(

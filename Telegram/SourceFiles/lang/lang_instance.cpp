@@ -226,11 +226,11 @@ QString CustomLanguageId() {
 
 Language DefaultLanguage() {
 	return Language{
-		u"en"_q,
+		u"ru"_q,
 		QString(),
 		QString(),
-		u"English"_q,
-		u"English"_q,
+		u"Russian"_q,
+		u"Русский"_q,
 	};
 }
 

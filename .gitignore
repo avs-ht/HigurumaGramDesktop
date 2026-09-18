@@ -72,6 +72,5 @@ settings.local.json
 
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
-
 # Project specific
 Telegram/SourceFiles/_other/packer_private.h

@@ -33,6 +33,18 @@ class SessionShow;
 
 namespace Info::Statistics {
 
+enum class LoadingType {
+	Statistic,
+	Boosts,
+	Earn,
+};
+
+void FillLoading(
+	not_null<Ui::VerticalLayout*> container,
+	LoadingType type,
+	rpl::producer<bool> toggleOn,
+	rpl::producer<> showFinished);
+
 void AddPublicForwards(
 	const Data::PublicForwardsSlice &firstSlice,
 	not_null<Ui::VerticalLayout*> container,

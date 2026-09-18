@@ -25,8 +25,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item.h"
 #include "info/channel_statistics/boosts/giveaway/boost_badge.h"
 #include "lang/lang_keys.h"
+#include "lottie/lottie_icon.h"
 #include "main/main_session.h"
 #include "main/session/session_show.h"
+#include "settings/settings_common.h" // CreateLottieIcon.
 #include "settings/settings_credits_graphics.h" // PaintSubscriptionRightLabelCallback
 #include "ui/dynamic_image.h"
 #include "ui/dynamic_thumbnails.h"
@@ -40,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/vertical_list.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/labels.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
@@ -1389,6 +1392,63 @@ rpl::producer<bool> CreditsController::showMoreShownValue() const {
 }
 
 } // namespace
+
+void FillLoading(
+		not_null<Ui::VerticalLayout*> container,
+		LoadingType type,
+		rpl::producer<bool> toggleOn,
+		rpl::producer<> showFinished) {
+	const auto emptyWrap = container->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			container,
+			object_ptr<Ui::VerticalLayout>(container)));
+	emptyWrap->toggleOn(std::move(toggleOn), anim::type::instant);
+
+	const auto content = emptyWrap->entity();
+	const auto iconName = (type == LoadingType::Boosts)
+		? u"stats_boosts"_q
+		: (type == LoadingType::Earn)
+		? u"stats_earn"_q
+		: u"stats"_q;
+	auto icon = ::Settings::CreateLottieIcon(
+		content,
+		{ .name = iconName, .sizeOverride = st::normalBoxLottieSize },
+		st::settingsBlockedListIconPadding);
+
+	(
+		std::move(showFinished) | rpl::take(1)
+	) | rpl::on_next([animate = std::move(icon.animate)] {
+		animate(anim::repeat::loop);
+	}, icon.widget->lifetime());
+	content->add(std::move(icon.widget));
+
+	content->add(
+		object_ptr<Ui::FlatLabel>(
+			content,
+			(type == LoadingType::Boosts)
+				? tr::lng_stats_boosts_loading()
+				: (type == LoadingType::Earn)
+				? tr::lng_stats_earn_loading()
+				: tr::lng_stats_loading(),
+			st::changePhoneTitle),
+		st::changePhoneTitlePadding + st::boxRowPadding,
+		style::al_top);
+
+	content->add(
+		object_ptr<Ui::FlatLabel>(
+			content,
+			(type == LoadingType::Boosts)
+				? tr::lng_stats_boosts_loading_subtext()
+				: (type == LoadingType::Earn)
+				? tr::lng_stats_earn_loading_subtext()
+				: tr::lng_stats_loading_subtext(),
+			st::statisticsLoadingSubtext),
+		st::changePhoneDescriptionPadding + st::boxRowPadding,
+		style::al_top
+	)->setTryMakeSimilarLines(true);
+
+	Ui::AddSkip(content, st::settingsBlockedListIconPadding.top());
+}
 
 void AddPublicForwards(
 		const Data::PublicForwardsSlice &firstSlice,

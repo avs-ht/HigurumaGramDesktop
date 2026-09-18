@@ -67,7 +67,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_peer_menu.h"
 #include "window/notifications_manager.h"
 #include "info/info_memento.h"
-#include "info/statistics/info_statistics_widget.h"
 #include "boxes/about_sponsored_box.h"
 #include "boxes/delete_messages_box.h"
 #include "boxes/moderate_messages_box.h"
@@ -3112,17 +3111,6 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 			_menu->addAction(isPinned ? tr::lng_context_unpin_msg(tr::now) : tr::lng_context_pin_msg(tr::now), crl::guard(controller, [=] {
 				Window::ToggleMessagePinned(controller, pinItemId, !isPinned);
 			}), isPinned ? &st::menuIconUnpin : &st::menuIconPin);
-		}
-		if (canViewMessageStats(item)) {
-			const auto channel = _peer->asChannel();
-			auto callback = crl::guard(controller, [=] {
-				controller->showSection(
-					Info::Statistics::Make(channel, itemId, {}));
-			});
-			_menu->addAction(
-				tr::lng_stats_title(tr::now),
-				std::move(callback),
-				&st::menuIconStats);
 		}
 
 		AyuUi::AddHistoryAction(_menu, item);

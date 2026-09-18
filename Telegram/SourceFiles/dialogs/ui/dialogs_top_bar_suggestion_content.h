@@ -22,10 +22,6 @@ namespace Ui::Text {
 struct MarkedContext;
 } // namespace Ui::Text
 
-namespace Data {
-struct UnreviewedAuth;
-} // namespace Data
-
 namespace Dialogs {
 
 [[nodiscard]] int PillRadius();
@@ -41,39 +37,6 @@ void PaintBottomFade(
 	int outerWidth,
 	int fadeHeight,
 	style::color bg);
-
-class UnconfirmedAuthWrap : public Ui::SlideWrap<Ui::VerticalLayout> {
-public:
-	UnconfirmedAuthWrap(
-		not_null<Ui::RpWidget*> parent,
-		object_ptr<Ui::VerticalLayout> &&child);
-
-	[[nodiscard]] const Ui::BoxShadow &shadow() const {
-		return _shadow;
-	}
-
-	[[nodiscard]] rpl::producer<int> desiredHeightValue() const override;
-
-	void setCollapseProgress(rpl::producer<float64> progress);
-	void prepareCollapseSnapshot();
-
-protected:
-	int resizeGetHeight(int newWidth) override;
-
-private:
-	void releaseCollapseSnapshot();
-
-	float64 _collapseProgress = 0.;
-	QPixmap _collapseSnapshot;
-	Ui::BoxShadow _shadow;
-
-};
-
-not_null<UnconfirmedAuthWrap*> CreateUnconfirmedAuthContent(
-		not_null<Ui::RpWidget*> parent,
-		rpl::producer<std::vector<Data::UnreviewedAuth>> list,
-		Fn<void(bool)> callback,
-		rpl::producer<float64> collapseProgress);
 
 struct TopBarSuggestionGeometry {
 	int cardInnerHeight = 0;

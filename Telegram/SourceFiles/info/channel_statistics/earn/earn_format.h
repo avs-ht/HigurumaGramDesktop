@@ -7,7 +7,18 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
+#include "base/basic_types.h"
 #include "data/data_channel_earn.h"
+
+#include <rpl/producer.h>
+
+#include <QtCore/QMargins>
+
+#include <optional>
+
+namespace Ui {
+class FlatLabel;
+} // namespace Ui
 
 namespace Info::ChannelEarn {
 
@@ -23,5 +34,11 @@ namespace Info::ChannelEarn {
 	CreditsAmount value,
 	float64 rate,
 	int afterFloat);
+
+void AddEmojiToMajor(
+	not_null<Ui::FlatLabel*> label,
+	rpl::producer<CreditsAmount> value,
+	std::optional<bool> isIn,
+	std::optional<QMargins> margins);
 
 } // namespace Info::ChannelEarn

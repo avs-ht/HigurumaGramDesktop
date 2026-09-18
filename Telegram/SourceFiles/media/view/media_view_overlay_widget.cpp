@@ -48,7 +48,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "info/info_memento.h"
 #include "info/info_controller.h"
-#include "info/statistics/info_statistics_widget.h"
 #include "boxes/delete_messages_box.h"
 #include "boxes/moderate_messages_box.h"
 #include "boxes/report_messages_box.h"
@@ -2318,21 +2317,6 @@ void OverlayWidget::fillContextMenuActions(
 			}
 		}, &st::mediaMenuIconReport);
 	}();
-	{
-		const auto channel = story ? story->peer()->asChannel() : nullptr;
-		using Flag = ChannelDataFlag;
-		if (channel && (channel->flags() & Flag::CanGetStatistics)) {
-			const auto peer = channel;
-			const auto fullId = story->fullId();
-			addAction(tr::lng_stats_title(tr::now), [=] {
-				if (const auto window = findWindow()) {
-					close();
-					using namespace Info;
-					window->showSection(Statistics::Make(peer, {}, fullId));
-				}
-			}, &st::mediaMenuIconStats);
-		}
-	}
 	if (_stories
 		&& _stories->allowStealthMode()
 		&& story

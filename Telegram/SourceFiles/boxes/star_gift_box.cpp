@@ -26,9 +26,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peer_list_controllers.h"
 #include "boxes/premium_preview_box.h"
 #include "boxes/send_credits_box.h"
-#include "boxes/star_gift_auction_box.h"
-#include "boxes/star_gift_preview_box.h"
-#include "boxes/star_gift_resale_box.h"
 #include "boxes/transfer_gift_box.h"
 #include "chat_helpers/emoji_suggestions_widget.h"
 #include "chat_helpers/message_field.h"
@@ -3366,18 +3363,6 @@ void AddUpgradeGiftCover(
 	}) | rpl::flatten_latest();
 
 	auto emoji = tr::marked();
-	if (const auto &models = args.all.models; !models.empty()) {
-		const auto indices = RandomIndicesSubset(models.size(), 3);
-		for (const auto index : indices) {
-			auto single = Data::SingleCustomEmoji(models[index].document);
-			single.entities.front() = EntityInText(
-				single.entities.front().type(),
-				single.entities.front().offset(),
-				single.entities.front().length(),
-				u"scaled-custom:"_q + single.entities.front().data());
-			emoji.append(single).append(' ');
-		}
-	}
 
 	auto subtitle = state->upgraded.value(
 	) | rpl::map([=](std::shared_ptr<Data::GiftUpgradeResult> upgraded) {
@@ -3399,13 +3384,6 @@ void AddUpgradeGiftCover(
 					rpl::single(tr::marked(args.peer->shortName())),
 					tr::marked);
 	}) | rpl::flatten_latest();
-	const auto hasAll = !args.all.models.empty();
-	const auto title = args.stargift.resellTitle;
-	const auto showAll = [=, list = args.all] {
-		const auto type = Data::GiftAttributeIdType::Model;
-		const auto null = nullptr;
-		show->show(Box(StarGiftPreviewBox, title, list, type, null));
-	};
 	auto numberText = state->upgraded.value(
 	) | rpl::map([](const std::shared_ptr<Data::GiftUpgradeResult> &v) {
 		return (v && v->info.unique && v->info.unique->number > 0)
@@ -3415,9 +3393,6 @@ void AddUpgradeGiftCover(
 	AddUniqueGiftCover(container, std::move(gifts), {
 		.numberText = std::move(numberText),
 		.subtitle = std::move(subtitle),
-		.subtitleClick = hasAll ? showAll : Fn<void()>(),
-		.subtitleLinkColored = hasAll,
-		.subtitleOutlined = hasAll,
 		.resalePrice = std::move(resalePrice),
 		.resaleClick = std::move(resaleClick),
 		.upgradeSpinner = upgradeSpinner,
@@ -4182,28 +4157,11 @@ void UpgradeBox(
 }
 
 void GetVariantsAndShowUpgradeBox(UpgradeArgs &&args) {
-	const auto weak = base::make_weak(args.controller);
-	const auto session = &args.peer->session();
-	const auto auctions = &session->giftAuctions();
-	const auto guard = base::make_weak(args.controller);
-	const auto done = crl::guard(args.controller, [](UpgradeArgs &&args) {
-		const auto onstack = args.ready;
-		const auto window = args.controller;
-		window->show(Box(UpgradeBox, window, std::move(args)));
-		if (onstack) {
-			onstack(true);
-		}
-	});
-	const auto giftId = args.stargift.id;
-	if (auto attributes = auctions->attributes(args.stargift.id)) {
-		args.all = std::move(*attributes);
-		done(std::move(args));
-	} else {
-		auctions->requestAttributes(giftId, crl::guard(guard, [=] {
-			auto copy = args;
-			copy.all = std::move(*auctions->attributes(giftId));
-			done(std::move(copy));
-		}));
+	const auto onstack = args.ready;
+	const auto window = args.controller;
+	window->show(Box(UpgradeBox, window, std::move(args)));
+	if (onstack) {
+		onstack(true);
 	}
 }
 
@@ -4455,8 +4413,6 @@ struct DefaultGiftHandlerState {
 	not_null<PeerData*> peer;
 	std::shared_ptr<Api::PremiumGiftCodeOptions> api;
 	std::shared_ptr<Data::UniqueGift> transferRequested;
-	uint64 resaleRequestingId = 0;
-	rpl::lifetime resaleLifetime;
 
 	base::has_weak_ptr guard;
 };
@@ -4530,38 +4486,8 @@ void DefaultGiftHandler(
 				Api::InputSavedStarGiftId(savedId, unique),
 				peer->input()),
 			formReady);
-	} else if (star && star->resale) {
-		const auto id = star->info.id;
-		if (state->resaleRequestingId == id) {
-			return;
-		}
-		state->resaleRequestingId = id;
-		state->resaleLifetime = ShowStarGiftResale(
-			window,
-			peer,
-			id,
-			star->info.resellTitle,
-			[=] { state->resaleRequestingId = 0; });
-	} else if (star && star->info.auction()) {
-		if (!IsSoldOut(star->info)
-			&& premiumNeeded
-			&& !peer->session().premium()) {
-			Settings::ShowPremiumGiftPremium(window, star->info);
-		} else {
-			const auto id = star->info.id;
-			if (state->resaleRequestingId == id) {
-				return;
-			}
-			state->resaleRequestingId = id;
-			state->resaleLifetime = ShowStarGiftAuction(
-				window,
-				peer,
-				id,
-				[=] { state->resaleRequestingId = 0; },
-				crl::guard(&state->guard, [=] {
-					state->resaleLifetime.destroy();
-				}));
-		}
+	} else if (star && (star->resale || star->info.auction())) {
+		return;
 	} else if (star && IsSoldOut(star->info)) {
 		window->show(Box(SoldOutBox, window, *star));
 	} else if (premiumNeeded && !peer->session().premium()) {
@@ -5061,20 +4987,6 @@ void SendGiftBox(
 		if (!state->messageAllowed.current()) {
 			details.text = {};
 		}
-		const auto stars = std::get_if<GiftTypeStars>(&details.descriptor);
-		if (stars && stars->info.auction()) {
-			const auto bidBox = window->show(MakeAuctionBidBox({
-				.peer = peer,
-				.show = window->uiShow(),
-				.state = state->auction.value(),
-				.details = std::make_unique<GiftSendDetails>(details),
-			}));
-			bidBox->boxClosing(
-			) | rpl::on_next([=] {
-				box->closeBox();
-			}, box->lifetime());
-			return;
-		}
 		const auto copy = state->media; // Let media outlive the box.
 		const auto weak = base::make_weak(box);
 		const auto done = [=](Payments::CheckoutResult result) {
@@ -5094,66 +5006,19 @@ void SendGiftBox(
 		SendGift(window, peer, api, details, done);
 	});
 	if (limited) {
-		if (auction) {
-			const auto &now = state->auction.current();
-			const auto rounds = now.totalRounds;
-			const auto perRound = now.gift->auctionGiftsPerRound;
-			auto owned = object_ptr<Ui::FlatLabel>(
-				container,
-				rpl::single(tr::lng_auction_about_top_short(
-					tr::now,
-					lt_count,
-					perRound,
-					lt_bidders,
-					tr::lng_auction_about_top_bidders(
-						tr::now,
-						lt_count,
-						perRound,
-						tr::rich),
-					lt_link,
-					tr::lng_auction_text_link(
-						tr::now,
-						lt_arrow,
-						Text::IconEmoji(&st::textMoreIconEmoji),
-						tr::link),
-					tr::rich)),
-				st::defaultDividerLabel.label);
-			const auto label = owned.data();
-			const auto about = container->add(
-				object_ptr<Ui::DividerLabel>(
-					container,
-					std::move(owned),
-					st::defaultBoxDividerLabelPadding),
-				{ 0, st::giftLimitedBox.buttonPadding.top(), 0, 0 });
-			AddSoldLeftSlider(about, *stars, st::boxRowPadding);
-
-			const auto show = window->uiShow();
-			label->setClickHandlerFilter([=](const auto &...) {
-				show->show(Box(AuctionAboutBox, rounds, perRound, nullptr));
-				return false;
-			});
-		} else {
-			AddSoldLeftSlider(button, *stars);
-		}
+		AddSoldLeftSlider(button, *stars);
 	}
-	if (stars && stars->info.auction()) {
-		SetAuctionButtonCountdownText(
-			button,
-			AuctionButtonCountdownType::Place,
-			state->auction.value());
-	} else {
-		SetButtonMarkedLabel(
-			button,
-			(peer->isSelf()
-				? tr::lng_gift_send_button_self
-				: tr::lng_gift_send_button)(
-					lt_cost,
-					std::move(cost),
-					tr::marked),
-			session,
-			st::creditsBoxButtonLabel,
-			&st::giftBox.button.textFg);
-	}
+	SetButtonMarkedLabel(
+		button,
+		(peer->isSelf()
+			? tr::lng_gift_send_button_self
+			: tr::lng_gift_send_button)(
+				lt_cost,
+				std::move(cost),
+				tr::marked),
+		session,
+		st::creditsBoxButtonLabel,
+		&st::giftBox.button.textFg);
 }
 
 std::shared_ptr<Data::GiftUpgradeResult> FindUniqueGift(

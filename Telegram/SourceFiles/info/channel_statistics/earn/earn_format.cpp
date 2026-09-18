@@ -7,10 +7,19 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/channel_statistics/earn/earn_format.h"
 
+#include "base/algorithm.h"
+#include "info/channel_statistics/earn/earn_icons.h"
+#include "ui/text/custom_emoji_helper.h"
+#include "ui/text/text_entity.h"
+#include "ui/widgets/labels.h"
+#include "styles/style_channel_earn.h"
+
 #include <QtCore/QLocale>
 
 namespace Info::ChannelEarn {
 namespace {
+
+constexpr auto kMinus = QChar(0x2212);
 
 constexpr auto kMinorPartLength = 9;
 constexpr auto kMaxChoppedZero = kMinorPartLength - 2;
@@ -90,6 +99,40 @@ QString ToUsd(
 			value.value() * rate,
 			'f',
 			afterFloat ? afterFloat : 2);
+}
+
+void AddEmojiToMajor(
+		not_null<Ui::FlatLabel*> label,
+		rpl::producer<CreditsAmount> value,
+		std::optional<bool> isIn,
+		std::optional<QMargins> margins) {
+	const auto &st = label->st();
+	const auto prepended = !isIn
+		? TextWithEntities()
+		: TextWithEntities::Simple((*isIn) ? QChar('+') : kMinus);
+	std::move(
+		value
+	) | rpl::on_next([=](CreditsAmount v) {
+		auto helper = Ui::Text::CustomEmojiHelper();
+		auto icon = helper.paletteDependent({
+			.factory = [=] {
+				return Ui::Earn::IconCurrencyColored(
+					st.style.font,
+					!isIn
+					? st::currencyFg->c
+					: (*isIn)
+					? st::boxTextFgGood->c
+					: st::menuIconAttentionColor->c);
+				},
+			.margin = margins
+				? *margins
+				: st::channelEarnCurrencyCommonMargins
+		});
+		auto value = MajorPart(v.abs());
+		label->setMarkedText(
+			base::duplicate(prepended).append(icon).append(value),
+			helper.context());
+	}, label->lifetime());
 }
 
 } // namespace Info::ChannelEarn

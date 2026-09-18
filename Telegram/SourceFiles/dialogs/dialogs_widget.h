@@ -216,10 +216,6 @@ private:
 	void setupShortcuts();
 	void setupStories();
 	void setupSwipeBack();
-	void setupTopBarSuggestions();
-#ifdef _DEBUG
-	void setupTopBarSuggestionTestHotkeys();
-#endif // _DEBUG
 	void storiesExplicitCollapse();
 	void collectStoriesUserpicsViews(Data::StorySourcesList list);
 	void storiesToggleExplicitExpand(bool expand);
@@ -235,7 +231,6 @@ private:
 	void showMainMenu();
 	void clearSearchCache(bool clearPosts);
 	void setSearchQuery(const QString &query, int cursorPosition = -1);
-	void updateTopBarSuggestions();
 	void updateCommunityRequestsBubble();
 	void updateCommunityAddChatButton();
 	void updateCommunityOverlaysVisibility();
@@ -347,8 +342,6 @@ private:
 
 	base::unique_qptr<Ui::RpWidget> _chatFilters;
 
-	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _topBarSuggestion;
-	base::unique_qptr<Ui::RpWidget> _topBarSuggestionPlaceholder;
 	rpl::event_stream<int> _topBarSuggestionHeightChanged;
 	base::unique_qptr<Ui::SlideWrap<Ui::RpWidget>> _communityRequests;
 	base::unique_qptr<Ui::RpWidget> _communityRequestsPlaceholder;
@@ -359,9 +352,6 @@ private:
 	rpl::lifetime _communityAddChatLifetime;
 	base::unique_qptr<Ui::RpWidget> _communityAddChatNarrow;
 	rpl::event_stream<> _communityAddChatRefresh;
-	rpl::event_stream<bool> _searchStateForTopBarSuggestion;
-	rpl::event_stream<> _prepareTopBarSnapshot;
-	rpl::event_stream<bool> _openedFolderOrForumChanges;
 
 	object_ptr<Ui::ElasticScroll> _scroll;
 	Ui::VerticalLayout *_innerList = nullptr;
