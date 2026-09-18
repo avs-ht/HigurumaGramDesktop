@@ -16,14 +16,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peers/replace_boost_box.h"
 #include "boxes/add_contact_box.h"
 #include "boxes/delete_messages_box.h"
-#include "boxes/star_gift_auction_box.h"
 #include "window/window_chat_preview.h"
 #include "window/window_chat_switch_process.h"
 #include "window/window_controller.h"
 #include "window/window_filters_menu.h"
 #include "window/section_widget.h"
 #include "window/window_separate_id.h"
-#include "info/channel_statistics/earn/info_channel_earn_list.h"
 #include "info/peer_gifts/info_peer_gifts_widget.h"
 #include "info/stories/info_stories_widget.h"
 #include "info/info_memento.h"
@@ -109,7 +107,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_global_privacy.h"
 #include "api/api_blocked_peers.h"
 #include "api/api_premium.h"
-#include "boxes/star_gift_craft_box.h"
 #include "support/support_helper.h"
 #include "storage/file_upload.h"
 #include "storage/download_manager_mtproto.h"
@@ -1740,50 +1737,6 @@ SessionController::SessionController(
 		activateFirstChatsFilter();
 		setupPremiumToast();
 	});
-
-#if _DEBUG // TEST: Auto-open craft box on startup
-	constexpr auto kGiftsCount = 4;
-	crl::on_main(this, [=] {
-		if (rand() % 2 >= 0) {
-			return;
-		}
-		const auto user = session->user();
-		session->api().request(MTPpayments_GetSavedStarGifts(
-			MTP_flags(MTPpayments_GetSavedStarGifts::Flag::f_exclude_unlimited),
-			user->input(),
-			MTP_int(0),
-			MTP_string(QString()),
-			MTP_int(50)
-		)).done([=](const MTPpayments_SavedStarGifts &result) {
-			const auto &data = result.data();
-			session->data().processUsers(data.vusers());
-			session->data().processChats(data.vchats());
-
-			auto craftableGifts = std::vector<Ui::GiftForCraftEntry>();
-			craftableGifts.reserve(kGiftsCount);
-
-			for (const auto &gift : data.vgifts().v) {
-				if (auto parsed = Api::FromTL(user, gift)) {
-					const auto unique = parsed->info.unique;
-					if (unique
-						&& unique->craftChancePermille > 0
-						&& unique->canCraftAt <= base::unixtime::now()) {
-						craftableGifts.push_back({
-							unique,
-							parsed->manageId,
-						});
-						if (craftableGifts.size() >= kGiftsCount) {
-							break;
-						}
-					}
-				}
-			}
-			if (!craftableGifts.empty()) {
-				Ui::ShowTestGiftCraftBox(this, std::move(craftableGifts));
-			}
-		}).send();
-	});
-#endif
 }
 
 bool SessionController::skipNonPremiumLimitToast(bool download) const {
@@ -4027,32 +3980,9 @@ void SessionController::dropSubsectionTabs() {
 }
 
 void SessionController::showStarGiftAuction(const QString &slug) {
-	_starGiftAuctionLifetime.destroy();
-
-	const auto requesting = _starGiftAuctionLifetime.make_state<
-		base::has_weak_ptr
-	>();
-	const auto guard = base::make_weak(requesting);
-	const auto weak = base::make_weak(this);
-	session().giftAuctions().resolveSlug(slug, [=](uint64 giftId) {
-		if (!guard || !weak) {
-			return;
-		}
-		_starGiftAuctionLifetime.destroy();
-		if (giftId) {
-			showStarGiftAuction(giftId);
-		}
-	});
 }
 
 void SessionController::showStarGiftAuction(uint64 giftId) {
-	_starGiftAuctionLifetime.destroy();
-	_starGiftAuctionLifetime = Ui::ShowStarGiftAuction(
-		this,
-		nullptr,
-		giftId,
-		[] {},
-		[=] { _starGiftAuctionLifetime.destroy(); });
 }
 
 void SessionController::showCloudPassword(const QString &highlight) {

@@ -17,7 +17,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "dialogs/ui/dialogs_top_bar_suggestion_content.h"
 #include "dialogs/dialogs_inner_widget.h"
 #include "dialogs/dialogs_search_from_controllers.h"
-#include "dialogs/dialogs_top_bar_suggestion.h"
 #include "dialogs/dialogs_quick_action.h"
 #include "dialogs/dialogs_key.h"
 #include "history/history.h"
@@ -866,10 +865,6 @@ Widget::Widget(
 	}
 
 	setupFrozenAccountBar();
-	setupTopBarSuggestions();
-#ifdef _DEBUG
-	setupTopBarSuggestionTestHotkeys();
-#endif // _DEBUG
 }
 
 void Widget::setupSwipeBack() {
@@ -1280,66 +1275,6 @@ void Widget::setupFrozenAccountBar() {
 	}, lifetime());
 }
 
-void Widget::setupTopBarSuggestions() {
-	if (_layout == Layout::Child) {
-		return;
-	}
-	using namespace rpl::mappers;
-	crl::on_main(_innerList, [=] {
-		const auto owner = &session().data();
-		session().api().authorizations().unreviewedChanges(
-		) | rpl::on_next([=] {
-			updateForceDisplayWide();
-		}, lifetime());
-		(owner->chatsListLoaded(nullptr)
-			? rpl::single<Data::Folder*>(nullptr)
-			: owner->chatsListLoadedEvents()
-		) | rpl::filter(_1 == nullptr) | rpl::map([=] {
-			auto on = rpl::combine(
-				controller()->activeChatsFilter(),
-				_openedFolderOrForumChanges.events_starting_with(false),
-				_searchStateForTopBarSuggestion.events_starting_with(
-					!_searchState.query.isEmpty()),
-				_jumpToDate->toggledValue()
-			) | rpl::map([=](
-					FilterId id,
-					bool folderOrForum,
-					bool search,
-					bool searchInPeer) {
-				return !folderOrForum
-					&& !search
-					&& !searchInPeer
-					&& (id == owner->chatsFilters().defaultId());
-			});
-			return TopBarSuggestionValue(
-				this,
-				&session(),
-				std::move(on),
-				_childListShown.value(),
-				_prepareTopBarSnapshot.events());
-		}) | rpl::flatten_latest() | rpl::on_next([=](
-				Ui::SlideWrap<Ui::RpWidget> *raw) {
-			if (raw) {
-				_topBarSuggestion.reset(raw);
-				MountTopBarSuggestion({
-					.scroll = _scroll,
-					.innerList = _innerList,
-					.wrap = _topBarSuggestion.get(),
-					.placeholder = &_topBarSuggestionPlaceholder,
-					.heightChanged = [=](int h) {
-						_topBarSuggestionHeightChanged.fire_copy(h);
-					},
-				});
-			} else {
-				_topBarSuggestionPlaceholder = nullptr;
-				_topBarSuggestion = nullptr;
-				_scroll->setBarTopInset(0);
-				_topBarSuggestionHeightChanged.fire(0);
-			}
-		}, lifetime());
-	});
-}
-
 void Widget::updateFrozenAccountBar() {
 	if (_layout == Layout::Child
 		|| _openedForum
@@ -1353,13 +1288,6 @@ void Widget::updateFrozenAccountBar() {
 			controller()->uiShow(),
 			FrozenWriteRestrictionType::DialogsList);
 		_frozenAccountBar->show();
-	}
-}
-
-void Widget::updateTopBarSuggestions() {
-	if (_topBarSuggestion) {
-		_openedFolderOrForumChanges.fire(
-			_openedFolder || _openedForum || _openedCommunity);
 	}
 }
 
@@ -2352,7 +2280,6 @@ void Widget::changeOpenedFolder(Data::Folder *folder, anim::type animated) {
 			storiesExplicitCollapse();
 		}
 		updateFrozenAccountBar();
-		updateTopBarSuggestions();
 	}, (folder != nullptr), animated);
 }
 
@@ -2409,7 +2336,6 @@ void Widget::changeOpenedForum(Data::Forum *forum, anim::type animated) {
 		_inner->changeOpenedForum(forum);
 		storiesToggleExplicitExpand(false);
 		updateFrozenAccountBar();
-		updateTopBarSuggestions();
 		updateStoriesVisibility();
 	}, (forum != nullptr), animated);
 }
@@ -2427,7 +2353,6 @@ void Widget::changeOpenedCommunity(
 		_openedCommunity = community;
 		_inner->changeOpenedCommunity(community);
 		updateFrozenAccountBar();
-		updateTopBarSuggestions();
 		updateCommunityRequestsBubble();
 		updateCommunityAddChatButton();
 	}, (community != nullptr), animated);
@@ -4027,7 +3952,6 @@ void Widget::openChildList(
 		}
 	}, shadow->lifetime());
 
-	_prepareTopBarSnapshot.fire({});
 	updateControlsGeometry();
 	updateControlsVisibility(true);
 
@@ -4259,9 +4183,6 @@ bool Widget::applySearchState(SearchState state) {
 			&& !_searchState.community
 			&& !searchInPeer());
 		updateControlsGeometry();
-	}
-	if (_topBarSuggestion && queryEmptyChanged) {
-		_searchStateForTopBarSuggestion.fire(!_searchState.query.isEmpty());
 	}
 	_searchWithPostsPreview = computeSearchWithPostsPreview();
 	if (queryChanged) {

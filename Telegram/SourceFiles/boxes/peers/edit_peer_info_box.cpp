@@ -11,7 +11,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_communities.h"
 #include "api/api_credits.h"
 #include "api/api_peer_photo.h"
-#include "api/api_statistics.h"
 #include "api/api_user_names.h"
 #include "main/main_session.h"
 #include "ui/boxes/confirm_box.h"
@@ -55,9 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/bot/starref/info_bot_starref_join_widget.h"
 #include "info/bot/starref/info_bot_starref_setup_widget.h"
 #include "info/channel_statistics/boosts/info_boosts_widget.h"
-#include "info/channel_statistics/earn/earn_format.h"
 #include "info/channel_statistics/earn/earn_icons.h"
-#include "info/channel_statistics/earn/info_channel_earn_widget.h"
 #include "info/profile/info_profile_values.h"
 #include "info/info_memento.h"
 #include "lang/lang_hardcoded.h"
@@ -505,7 +502,6 @@ private:
 	void fillPendingRequestsButton();
 
 	void fillBotUsernamesButton();
-	void fillBotCurrencyButton();
 	void fillBotCreditsButton();
 	void fillBotAffiliateProgram();
 	void fillBotEditIntroButton();
@@ -1480,7 +1476,6 @@ void Controller::fillManageSection() {
 
 		::AddSkip(container, 0);
 		fillBotUsernamesButton();
-		fillBotCurrencyButton();
 		fillBotCreditsButton();
 		fillBotAffiliateProgram();
 		fillBotEditIntroButton();
@@ -2005,70 +2000,6 @@ void Controller::fillBotUsernamesButton() {
 			_navigation->uiShow()->showBox(Box(UsernamesBox, user));
 		},
 		{ &st::menuIconLinks });
-}
-
-void Controller::fillBotCurrencyButton() {
-	Expects(_isBot);
-
-	struct State final {
-		rpl::variable<QString> balance;
-	};
-
-	auto &lifetime = _controls.buttonsLayout->lifetime();
-	const auto state = lifetime.make_state<State>();
-	const auto format = [=](const CreditsAmount &balance) {
-		return Lang::FormatCreditsAmountDecimal(balance);
-	};
-	const auto was = _peer->session().credits().balanceCurrency(
-		_peer->id);
-	if (was) {
-		state->balance = format(was);
-	}
-
-	const auto wrap = _controls.buttonsLayout->add(
-		object_ptr<Ui::SlideWrap<Ui::SettingsButton>>(
-			_controls.buttonsLayout,
-			EditPeerInfoBox::CreateButton(
-				_controls.buttonsLayout,
-				tr::lng_manage_peer_bot_balance_currency(),
-				state->balance.value(),
-				[controller = _navigation->parentController(), peer = _peer] {
-					controller->showSection(Info::ChannelEarn::Make(peer));
-				},
-				st::manageGroupButton,
-				{})));
-	wrap->toggle(!state->balance.current().isEmpty(), anim::type::instant);
-
-	const auto button = wrap->entity();
-	{
-		const auto currencyLoad
-			= button->lifetime().make_state<Api::EarnStatistics>(_peer);
-		currencyLoad->request(
-		) | rpl::on_error_done([=](const QString &error) {
-		}, [=] {
-			const auto balance = currencyLoad->data().currentBalance;
-			if (balance) {
-				wrap->toggle(true, anim::type::normal);
-			}
-			state->balance = format(balance);
-		}, button->lifetime());
-	}
-	{
-		const auto icon = Ui::CreateChild<Ui::RpWidget>(button);
-		icon->resize(st::menuIconLinks.size());
-		const auto image = Ui::Earn::MenuIconCurrency(icon->size());
-		icon->paintRequest() | rpl::on_next([=] {
-			auto p = QPainter(icon);
-			p.drawImage(0, 0, image);
-		}, icon->lifetime());
-
-		button->sizeValue(
-		) | rpl::on_next([=](const QSize &size) {
-			icon->moveToLeft(
-				button->st().iconLeft,
-				(size.height() - icon->height()) / 2);
-		}, icon->lifetime());
-	}
 }
 
 void Controller::fillBotCreditsButton() {

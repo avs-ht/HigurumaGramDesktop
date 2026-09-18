@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <unordered_map>
 
 // AyuGram includes
+#include "ayu/features/lock/ayu_lock_controller.h"
 #include "ayu/ui/ayu_userpic.h"
 #include "ayu/utils/telegram_helpers.h"
 #include "styles/style_ayu_icons.h"
@@ -5929,19 +5930,28 @@ bool InnerWidget::chooseRow(
 	};
 	auto chosen = modifyChosenRow(computeChosenRow(), modifiers);
 	if (chosen.key) {
-		if (IsServerMsgId(chosen.message.fullId.msg)) {
-			session().local().saveRecentSearchHashtags(_filter);
-		}
-		if (!chosen.message.fullId) {
-			if (const auto history = chosen.key.history()) {
-				if (history->peer->forum()) {
-					chosen.topicJumpRootId = pressedTopicRootId;
-				} else if (history->peer->amMonoforumAdmin()) {
-					chosen.sublistJumpPeerId = pressedSublistPeerId;
+		const auto openChosen = [=] {
+			if (IsServerMsgId(chosen.message.fullId.msg)) {
+				session().local().saveRecentSearchHashtags(_filter);
+			}
+			auto toOpen = chosen;
+			if (!toOpen.message.fullId) {
+				if (const auto history = toOpen.key.history()) {
+					if (history->peer->forum()) {
+						toOpen.topicJumpRootId = pressedTopicRootId;
+					} else if (history->peer->amMonoforumAdmin()) {
+						toOpen.sublistJumpPeerId = pressedSublistPeerId;
+					}
 				}
 			}
+			_chosenRow.fire_copy(toOpen);
+		};
+		if (const auto history = chosen.key.history()
+				; history && Ayu::Lock::IsRowLocked(history)) {
+			Ayu::Lock::PromptUnlock(_controller, history, openChosen);
+		} else {
+			openChosen();
 		}
-		_chosenRow.fire_copy(chosen);
 		return true;
 	}
 	return false;

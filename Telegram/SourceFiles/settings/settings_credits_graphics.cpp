@@ -18,8 +18,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/gift_premium_box.h"
 #include "boxes/share_box.h"
 #include "boxes/star_gift_box.h"
-#include "boxes/star_gift_craft_box.h"
-#include "boxes/star_gift_resale_box.h"
 #include "boxes/transfer_gift_box.h"
 #include "chat_helpers/stickers_gift_box_pack.h"
 #include "chat_helpers/stickers_lottie.h"
@@ -45,7 +43,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item_components.h" // HistoryServicePaymentRefund.
 #include "info/bot/starref/info_bot_starref_common.h"
 #include "info/channel_statistics/boosts/giveaway/boost_badge.h" // InfiniteRadialAnimationWidget.
-#include "info/channel_statistics/earn/info_channel_earn_widget.h" // Info::ChannelEarn::Make.
 #include "info/channel_statistics/earn/earn_format.h"
 #include "info/channel_statistics/earn/earn_icons.h"
 #include "info/peer_gifts/info_peer_gifts_common.h"
@@ -260,11 +257,7 @@ void ConvertStarGift(
 		Api::InputSavedStarGiftId(savedId)
 	)).done([=] {
 		if (const auto window = show->resolveWindow()) {
-			if (const auto channel = savedId.chat()) {
-				window->showSection(Info::ChannelEarn::Make(channel));
-			} else {
-				window->showSettings(Settings::CreditsId());
-			}
+			window->showSettings(Settings::CreditsId());
 		}
 		show->showToast((savedId.chat()
 			? tr::lng_gift_channel_got
@@ -1010,25 +1003,6 @@ void ProcessReceivedSubscriptions(
 	// (owner->isChannel() && owner->asChannel()->canTransferGifts());
 }
 
-[[nodiscard]] bool CanCraftGift(
-		not_null<Main::Session*> session,
-		const Data::CreditsHistoryEntry &e) {
-	const auto unique = e.uniqueGift.get();
-	if (!unique || !unique->craftChancePermille) {
-		return false;
-	}
-	const auto owner = (unique && unique->ownerId)
-		? session->data().peer(unique->ownerId).get()
-		: nullptr;
-	return !owner
-		? false
-		: owner->isSelf()
-		? e.in
-		: false;
-	// Currently we're not crafting channel gifts.
-	// (owner->isChannel() && owner->asChannel()->canTransferGifts());
-}
-
 [[nodiscard]] bool ShowOfferBuyButton(
 		not_null<Main::Session*> session,
 		const Data::CreditsHistoryEntry &e) {
@@ -1178,21 +1152,6 @@ void FillUniqueGiftMenu(
 		: owner;
 	if (!host) {
 		return;
-	}
-	if (CanCraftGift(&show->session(), e)) {
-		menu->addAction(tr::lng_gift_craft_menu_button(tr::now), [=] {
-			const auto unique = e.uniqueGift;
-			if (Ui::ShowCraftLaterError(show, unique)) {
-				return;
-			}
-			if (Ui::ShowCraftAddressError(show, unique)) {
-				return;
-			}
-			const auto savedId = EntryToSavedStarGiftId(&show->session(), e);
-			if (const auto window = show->resolveWindow()) {
-				Ui::ShowGiftCraftInfoBox(window, unique, savedId);
-			}
-		}, st.craft ? st.craft : &st::menuIconCraft);
 	}
 	const auto transfer = savedId
 		&& (savedId.isUser() ? e.in : savedId.chat()->canTransferGifts())
@@ -1651,20 +1610,7 @@ void GenericCreditsEntryBody(
 	if (uniqueGift) {
 		AddSkip(content, st::defaultVerticalListSkip * 2);
 
-		const auto canCraft = CanCraftGift(session, e);
-		const auto craft = canCraft ? [=] {
-			const auto unique = e.uniqueGift;
-			if (Ui::ShowCraftLaterError(show, unique)) {
-				return;
-			}
-			if (Ui::ShowCraftAddressError(show, unique)) {
-				return;
-			}
-			const auto savedId = EntryToSavedStarGiftId(&show->session(), e);
-			if (const auto window = show->resolveWindow()) {
-				Ui::ShowGiftCraftInfoBox(window, unique, savedId);
-			}
-		} : Fn<void()>();
+		const auto craft = Fn<void()>();
 		AddUniqueCloseMoreButton(box, st, [=](not_null<Ui::PopupMenu*> menu) {
 			const auto type = SavedStarGiftMenuType::View;
 			FillUniqueGiftMenu(show, menu, e, type, st);
@@ -2539,7 +2485,6 @@ void UniqueGiftValueBox(
 		std::shared_ptr<Data::DocumentMedia> media;
 		std::unique_ptr<Lottie::SinglePlayer> lottie;
 		rpl::lifetime downloadLifetime;
-		rpl::lifetime buyLifetime;
 	};
 	Ui::AddSkip(content, st::creditsHistoryEntryStarGiftSpace);
 
@@ -2670,20 +2615,7 @@ void UniqueGiftValueBox(
 	};
 
 	if (const auto count = value->forSaleOnTelegram; count > 0) {
-		addAvailability(
-			count,
-			tr::lng_gift_value_telegram
-		)->setClickHandlerFilter([=](const auto &...) {
-			if (const auto window = show->resolveWindow()) {
-				state->buyLifetime = Ui::ShowStarGiftResale(
-					window,
-					window->session().user(),
-					unique->initialGiftId,
-					unique->title,
-					crl::guard(box, [=] { state->buyLifetime.destroy(); }));
-			}
-			return false;
-		});
+		addAvailability(count, tr::lng_gift_value_telegram);
 	}
 	if (const auto count = value->forSaleOnFragment; count > 0) {
 		const auto url = value->fragmentUrl;

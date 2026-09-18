@@ -1819,12 +1819,16 @@ void Settings::setSkipToastsInFocus(bool value) {
 	_skipToastsInFocus = value;
 }
 
-void Settings::setTranslateButtonEnabled(bool value) {
-	_translateButtonEnabled = value;
+// Privacy strip: the built-in translator (Telegram/Google/Yandex, message
+// button and the auto-detect chat bar) is disabled outright. The getters
+// always report "off" regardless of what's stored/loaded/synced, and the
+// setters are no-ops, so no code path (including restoring an old settings
+// file) can turn it back on.
+void Settings::setTranslateButtonEnabled(bool) {
 }
 
 bool Settings::translateButtonEnabled() const {
-	return _translateButtonEnabled;
+	return false;
 }
 
 void Settings::setUsePlatformTranslation(bool value) {
@@ -1835,16 +1839,15 @@ bool Settings::usePlatformTranslation() const {
 	return _usePlatformTranslation;
 }
 
-void Settings::setTranslateChatEnabled(bool value) {
-	_translateChatEnabled = value;
+void Settings::setTranslateChatEnabled(bool) {
 }
 
 bool Settings::translateChatEnabled() const {
-	return _translateChatEnabled.current();
+	return false;
 }
 
 rpl::producer<bool> Settings::translateChatEnabledValue() const {
-	return _translateChatEnabled.value();
+	return rpl::single(false);
 }
 
 [[nodiscard]] const std::vector<LanguageId> &DefaultSkipLanguages() {

@@ -53,7 +53,8 @@ void initWorker() {
 }
 
 void initRCManager() {
-	RCManager::getInstance().start();
+	// Privacy strip: never contact update.ayugram.one / api.exteragram.app.
+	// See RCManager::start() in rc_manager.cpp for the matching no-op.
 }
 
 void initTranslator() {

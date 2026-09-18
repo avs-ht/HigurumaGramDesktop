@@ -37,29 +37,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller_link_info.h"
 
 
-namespace {
-
-rpl::producer<TextWithEntities> Text() {
-	return tr::lng_about_text2(
-		lt_gpl_link,
-		rpl::single(Ui::Text::Link(
-			"GNU GPL",
-			"https://github.com/AyuGram/AyuGramDesktop/blob/dev/LICENSE")),
-		lt_github_link,
-		rpl::single(Ui::Text::Link(
-			"GitHub",
-			"https://github.com/AyuGram/AyuGramDesktop")),
-		tr::marked);
-}
-
-} // namespace
-
 void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controller) {
-	box->setTitle(rpl::single(u"AyuGram Desktop"_q));
+	box->setTitle(rpl::single(u"HigurumaGram Desktop"_q));
 
 	auto layout = box->verticalLayout();
 
-	const auto version = layout->add(
+	layout->add(
 		object_ptr<Ui::LinkButton>(
 			box,
 			tr::lng_about_version(
@@ -72,32 +55,10 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 			-st::lineWidth * 3,
 			st::boxRowPadding.right(),
 			st::boxRowPadding.bottom()));
-	version->setClickedCallback([=] {
-		File::OpenUrl(Core::App().changelogLink());
-	});
 
 	Ui::AddSkip(layout, st::aboutTopSkip);
 
-	const auto addText = [&](rpl::producer<TextWithEntities> text) {
-		const auto label = layout->add(
-			object_ptr<Ui::FlatLabel>(box, std::move(text), st::aboutLabel),
-			st::boxRowPadding);
-		label->setLinksTrusted();
-		Ui::AddSkip(layout, st::aboutSkip);
-	};
-
-	addText(Text());
-
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
-	box->addLeftButton(
-		rpl::single(QString("@AyuGramReleases")),
-		[box, controller]
-		{
-			box->closeBox();
-			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugramreleases"),
-			});
-		});
 
 	box->setWidth(st::aboutWidth);
 }

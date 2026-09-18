@@ -53,6 +53,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/features/filters/filters_controller.h"
+#include "ayu/features/lock/ayu_lock_controller.h"
 #include "styles/style_ayu_icons.h"
 
 
@@ -556,6 +557,38 @@ void PaintRow(
 				&& !draft
 				&& item
 				&& !item->isEmpty()));
+	}
+
+	// Privacy strip: a locally-locked chat shows neither its name nor its
+	// message preview (not even an unread counter) until unlocked with the
+	// local passcode. The row itself, its position, unread state and click
+	// handling are otherwise untouched.
+	if (history && Ayu::Lock::IsRowLocked(history)) {
+		if (!context.narrow) {
+			const auto nameleft = context.st->nameLeft;
+			const auto namewidth = context.width
+				- nameleft
+				- context.st->padding.right();
+			const auto rectForName = QRect(
+				nameleft,
+				context.st->nameTop,
+				namewidth,
+				st::semiboldFont->height);
+			p.setFont(st::semiboldFont);
+			p.setPen(context.active
+				? st::dialogsNameFgActive
+				: context.selected
+				? st::dialogsNameFgOver
+				: st::dialogsNameFg);
+			p.drawTextLeft(
+				rectForName.left(),
+				rectForName.top(),
+				context.width,
+				st::semiboldFont->elided(
+					QString::fromUtf8("\xF0\x9F\x94\x92 Locked chat"),
+					rectForName.width()));
+		}
+		return;
 	}
 
 	const auto nameleft = context.st->nameLeft;

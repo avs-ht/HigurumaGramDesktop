@@ -99,10 +99,11 @@ private:
 	std::unordered_set<ID> _supporterChannels = {};
 	std::unordered_map<ID, CustomBadge> _customBadges = {};
 
-	QString _donateUsername = QString("@ayugramOwner");
-	QString _donateAmountUsd = QString("5.00");
-	QString _donateAmountTon = QString("3.50");
-	QString _donateAmountRub = QString("386");
+	// Privacy strip: no donate nagging even via the ayugram://support deep link.
+	QString _donateUsername = QString();
+	QString _donateAmountUsd = QString();
+	QString _donateAmountTon = QString();
+	QString _donateAmountRub = QString();
 
 	QTimer* _timer = nullptr;
 

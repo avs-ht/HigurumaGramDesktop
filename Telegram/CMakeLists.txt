@@ -114,6 +114,10 @@ set(ayugram_files
         ayu/ayu_lang.h
         ayu/ayu_infra.cpp
         ayu/ayu_infra.h
+        ayu/features/lock/ayu_lock_controller.cpp
+        ayu/features/lock/ayu_lock_controller.h
+        ayu/utils/ayu_crypto.cpp
+        ayu/utils/ayu_crypto.h
         ayu/utils/ayu_mapper.cpp
         ayu/utils/ayu_mapper.h
         ayu/utils/qt_key_modifiers_extended.h
@@ -227,12 +231,6 @@ set(ayugram_files
         ayu/features/translator/ayu_translator.h
         ayu/features/translator/ayu_translate_provider.cpp
         ayu/features/translator/ayu_translate_provider.h
-        ayu/features/translator/html_parser.cpp
-        ayu/features/translator/html_parser.h
-        ayu/features/translator/implementations/google.cpp
-        ayu/features/translator/implementations/google.h
-        ayu/features/translator/implementations/yandex.cpp
-        ayu/features/translator/implementations/yandex.h
         ayu/features/translator/implementations/base.cpp
         ayu/features/translator/implementations/base.h
         ayu/features/filters/filters_controller.cpp
@@ -529,20 +527,10 @@ PRIVATE
     boxes/send_files_box_reply_header.h
     boxes/share_box.cpp
     boxes/share_box.h
-    boxes/star_gift_auction_box.cpp
-    boxes/star_gift_auction_box.h
     boxes/star_gift_box.cpp
     boxes/star_gift_box.h
     boxes/star_gift_cover_box.cpp
     boxes/star_gift_cover_box.h
-    boxes/star_gift_craft_animation.cpp
-    boxes/star_gift_craft_animation.h
-    boxes/star_gift_craft_box.cpp
-    boxes/star_gift_craft_box.h
-    boxes/star_gift_preview_box.cpp
-    boxes/star_gift_preview_box.h
-    boxes/star_gift_resale_box.cpp
-    boxes/star_gift_resale_box.h
     boxes/sticker_creator_box.cpp
     boxes/sticker_creator_box.h
     boxes/sticker_set_box.cpp
@@ -561,8 +549,6 @@ PRIVATE
     boxes/preview_ai_tone_box.h
     boxes/translate_box.cpp
     boxes/translate_box.h
-    boxes/unconfirmed_auth_denied_box.cpp
-    boxes/unconfirmed_auth_denied_box.h
     boxes/url_auth_box.cpp
     boxes/url_auth_box.h
     boxes/username_box.cpp
@@ -989,20 +975,6 @@ PRIVATE
     dialogs/dialogs_search_tags.h
     dialogs/dialogs_search_posts.cpp
     dialogs/dialogs_search_posts.h
-    dialogs/dialogs_top_bar_suggestion.cpp
-    dialogs/dialogs_top_bar_suggestion.h
-    dialogs/dialogs_top_bar_suggestion_test.cpp
-    dialogs/suggestions/suggestion.cpp
-    dialogs/suggestions/suggestion.h
-    dialogs/suggestions/suggestion_birthday_contacts.cpp
-    dialogs/suggestions/suggestion_birthday_setup.cpp
-    dialogs/suggestions/suggestion_custom_promo.cpp
-    dialogs/suggestions/suggestion_gift_auctions.cpp
-    dialogs/suggestions/suggestion_low_credits_subs.cpp
-    dialogs/suggestions/suggestion_premium_grace.cpp
-    dialogs/suggestions/suggestion_premium_offer.cpp
-    dialogs/suggestions/suggestion_unreviewed_auth.cpp
-    dialogs/suggestions/suggestion_userpic_setup.cpp
     dialogs/dialogs_widget.cpp
     dialogs/dialogs_widget.h
     editor/color_picker.cpp
@@ -1310,10 +1282,6 @@ PRIVATE
     info/channel_statistics/boosts/info_boosts_inner_widget.h
     info/channel_statistics/boosts/info_boosts_widget.cpp
     info/channel_statistics/boosts/info_boosts_widget.h
-    info/channel_statistics/earn/info_channel_earn_list.cpp
-    info/channel_statistics/earn/info_channel_earn_list.h
-    info/channel_statistics/earn/info_channel_earn_widget.cpp
-    info/channel_statistics/earn/info_channel_earn_widget.h
     info/common_groups/info_common_groups_inner_widget.cpp
     info/common_groups/info_common_groups_inner_widget.h
     info/common_groups/info_common_groups_widget.cpp
@@ -1438,16 +1406,9 @@ PRIVATE
     info/settings/info_settings_widget.h
     info/similar_peers/info_similar_peers_widget.cpp
     info/similar_peers/info_similar_peers_widget.h
-    info/statistics/info_statistics_common.h
-    info/statistics/info_statistics_inner_widget.cpp
-    info/statistics/info_statistics_inner_widget.h
     info/statistics/info_statistics_list_controllers.cpp
     info/statistics/info_statistics_list_controllers.h
-    info/statistics/info_statistics_recent_message.cpp
-    info/statistics/info_statistics_recent_message.h
     info/statistics/info_statistics_tag.h
-    info/statistics/info_statistics_widget.cpp
-    info/statistics/info_statistics_widget.h
     info/stories/info_stories_albums.cpp
     info/stories/info_stories_albums.h
     info/stories/info_stories_common.h
@@ -2350,36 +2311,41 @@ elseif (APPLE)
                     XCODE_EXPLICIT_FILE_TYPE "folder.iconcomposer.icon"
             )
         endforeach()
-    else()
-        set(icon_path ${icons_path}/Icon.iconset)
-        find_program(ICONUTIL iconutil)
-        find_program(PNG2ICNS png2icns)
-        if (ICONUTIL)
-            add_custom_command(
-                OUTPUT AppIcon-Default.icns
-                COMMAND ${ICONUTIL}
-                ARGS
-                    --convert icns
-                    --output AppIcon-Default.icns
-                    ${icon_path}
-            )
-        elseif (PNG2ICNS)
-            add_custom_command(
-                OUTPUT AppIcon-Default.icns
-                COMMAND ${PNG2ICNS}
-                ARGS
-                    AppIcon-Default.icns
-                    ${icon_path}/icon_16x16.png
-                    ${icon_path}/icon_32x32.png
-                    ${icon_path}/icon_128x128.png
-                    ${icon_path}/icon_256x256.png
-                    ${icon_path}/icon_512x512.png
-            )
-        endif()
-        if (ICONUTIL OR PNG2ICNS)
-            set_source_files_properties(AppIcon-Default.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-            target_add_resource(Telegram AppIcon-Default.icns)
-        endif()
+    endif()
+
+    # Telegram.plist's top-level CFBundleIconFile/CFBundleIconName always
+    # point at "AppIcon-Default.icns" (used by Finder/Dock/Launch Services
+    # for the primary icon), regardless of generator. The Icon Composer
+    # ".icon" bundles above only back the Xcode alternate-icon picker, so
+    # this .icns must be generated on every generator, not just non-Xcode.
+    set(icon_path ${icons_path}/Icon.iconset)
+    find_program(ICONUTIL iconutil)
+    find_program(PNG2ICNS png2icns)
+    if (ICONUTIL)
+        add_custom_command(
+            OUTPUT AppIcon-Default.icns
+            COMMAND ${ICONUTIL}
+            ARGS
+                --convert icns
+                --output AppIcon-Default.icns
+                ${icon_path}
+        )
+    elseif (PNG2ICNS)
+        add_custom_command(
+            OUTPUT AppIcon-Default.icns
+            COMMAND ${PNG2ICNS}
+            ARGS
+                AppIcon-Default.icns
+                ${icon_path}/icon_16x16.png
+                ${icon_path}/icon_32x32.png
+                ${icon_path}/icon_128x128.png
+                ${icon_path}/icon_256x256.png
+                ${icon_path}/icon_512x512.png
+        )
+    endif()
+    if (ICONUTIL OR PNG2ICNS)
+        set_source_files_properties(AppIcon-Default.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_add_resource(Telegram AppIcon-Default.icns)
     endif()
 
     set(lang_packs
@@ -2453,12 +2419,12 @@ if (build_macstore)
     )
 else()
     if (CMAKE_GENERATOR STREQUAL Xcode)
-        set(bundle_identifier "one.ayugram.AyuGramDesktop$<$<CONFIG:Debug>:Debug>")
+        set(bundle_identifier "one.higurumagram.HigurumaGramDesktop$<$<CONFIG:Debug>:Debug>")
     else()
-        set(bundle_identifier "one.ayugram.AyuGramDesktop")
+        set(bundle_identifier "one.higurumagram.HigurumaGramDesktop")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "AyuGram")
+    set(output_name "HigurumaGram")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)
@@ -2503,11 +2469,18 @@ PRIVATE
     U_STATIC_IMPLEMENTATION=1 # AyuGram: do not use __declspec(dllimport) when including icu headers
 )
 
+if (CMAKE_GENERATOR STREQUAL Xcode)
+    add_custom_command(TARGET Telegram POST_BUILD
+        COMMAND $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/build/mac/make_stripped_debug.sh> $<$<CONFIG:Debug>:$<TARGET_BUNDLE_DIR:Telegram>>
+        COMMAND_EXPAND_LISTS
+    )
+endif()
+
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if (APPLE
     OR is_multi_config
     OR NOT CMAKE_EXECUTABLE_SUFFIX STREQUAL ""
-    OR NOT "${output_name}" STREQUAL "AyuGram")
+    OR NOT "${output_name}" STREQUAL "HigurumaGram")
     set(output_folder ${CMAKE_BINARY_DIR})
 else()
     set(output_folder ${CMAKE_BINARY_DIR}/bin)

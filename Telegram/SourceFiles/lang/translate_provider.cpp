@@ -7,65 +7,44 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "lang/translate_provider.h"
 
-#include "base/options.h"
 #include "core/application.h"
 #include "core/core_settings.h"
 #include "data/data_msg_id.h"
 #include "data/data_peer.h"
 #include "data/data_session.h"
 #include "history/history_item.h"
-#include "lang/translate_mtproto_provider.h"
-#include "lang/translate_url_provider.h"
-#include "platform/platform_translate_provider.h"
 
-// AyuGram includes
-#include "ayu/ayu_settings.h"
-#include "ayu/features/translator/ayu_translate_provider.h"
-
-
+namespace Ui {
 namespace {
 
-base::options::option<QString> OptionTranslateUrlTemplate({
-	.id = "translate-url-template",
-	.name = "Translate URL template",
-	.description = "Template URL for custom translation provider."
-		" Supports %q text, %f source language and %t target language.",
-});
-
-[[nodiscard]] TranslationProvider ResolveTranslateProvider() {
-	const auto provider = AyuSettings::getInstance().translationProvider();
-	if ((provider == TranslationProvider::Native)
-		&& !Platform::IsTranslateProviderAvailable()) {
-		return TranslationProvider::Telegram;
+// Privacy strip: the built-in translator is disabled outright (Telegram's
+// own proxy, Google, Yandex, native OS translation and the custom URL
+// template are all reachable through CreateTranslateProvider, so this is
+// the single choke point that covers every one of them). Every context
+// menu / button that offers to translate a message ends up calling this
+// provider's request(), which reports a clean, already-handled failure
+// instead of making any request.
+class DisabledTranslateProvider final : public TranslateProvider {
+public:
+	[[nodiscard]] bool supportsMessageId() const override {
+		return true;
 	}
-	return provider;
-}
+
+	void request(
+			TranslateProviderRequest /*request*/,
+			LanguageId /*to*/,
+			Fn<void(TranslateProviderResult)> done) override {
+		done(TranslateProviderResult{
+			.error = TranslateProviderError::Unknown,
+		});
+	}
+};
 
 } // namespace
 
-namespace Ui {
-
 std::unique_ptr<TranslateProvider> CreateTranslateProvider(
-		not_null<Main::Session*> session) {
-	const auto urlTemplate = OptionTranslateUrlTemplate.value();
-	if (!urlTemplate.isEmpty()
-		&& urlTemplate.contains(u"%q"_q)) {
-		return CreateUrlTranslateProvider(urlTemplate);
-	}
-	const auto provider = ResolveTranslateProvider();
-	switch (provider) {
-	case TranslationProvider::Google:
-	case TranslationProvider::Yandex:
-		return CreateAyuTranslateProvider(session, provider);
-	case TranslationProvider::Native:
-		if (auto native = Platform::CreateTranslateProvider()) {
-			return native;
-		}
-		break;
-	case TranslationProvider::Telegram:
-		break;
-	}
-	return CreateMTProtoTranslateProvider(session);
+		not_null<Main::Session*> /*session*/) {
+	return std::make_unique<DisabledTranslateProvider>();
 }
 
 TranslateProviderRequest PrepareTranslateProviderRequest(

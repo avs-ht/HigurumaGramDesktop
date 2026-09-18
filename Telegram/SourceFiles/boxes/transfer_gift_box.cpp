@@ -18,7 +18,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peer_list_box.h"
 #include "boxes/peer_list_controllers.h"
 #include "boxes/star_gift_box.h"
-#include "boxes/star_gift_resale_box.h"
 #include "data/data_cloud_themes.h"
 #include "data/data_session.h"
 #include "data/data_star_gift.h"
@@ -539,7 +538,19 @@ void BuyResaleGift(
 				.slug = gift->slug,
 				.action = Data::GiftUpdate::Action::ResaleChange,
 			});
-			Ui::ShowResaleGiftBoughtToast(show, to, *gift);
+			show->showToast({
+				.title = to->isSelf() ? QString() : tr::lng_gift_sent_title(tr::now),
+				.text = TextWithEntities{ (to->isSelf()
+					? tr::lng_gift_sent_resale_done_self(
+						tr::now,
+						lt_gift,
+						Data::UniqueGiftName(*gift))
+					: tr::lng_gift_sent_resale_done(
+						tr::now,
+						lt_user,
+						to->shortName())),
+				},
+			});
 		}
 	};
 

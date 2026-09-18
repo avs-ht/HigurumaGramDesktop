@@ -90,11 +90,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "info/info_controller.h"
 #include "info/info_memento.h"
 #include "info/channel_statistics/boosts/info_boosts_widget.h"
-#include "info/channel_statistics/earn/info_channel_earn_widget.h"
-#include "info/channel_statistics/earn/earn_icons.h"
 #include "info/profile/info_profile_cover.h"
 #include "info/profile/info_profile_values.h"
-#include "info/statistics/info_statistics_widget.h"
 #include "info/stories/info_stories_widget.h"
 #include "data/components/scheduled_messages.h"
 #include "data/notify/data_notify_settings.h"
@@ -1273,17 +1270,6 @@ void Filler::addViewStatistics() {
 		const auto peer = _peer;
 		using Flag = ChannelDataFlag;
 		const auto canGetStats = (channel->flags() & Flag::CanGetStatistics);
-		const auto canViewEarn = (channel->flags() & Flag::CanViewRevenue);
-		const auto canViewCreditsEarn
-			= (channel->flags() & Flag::CanViewCreditsRevenue);
-		if (canGetStats) {
-			_addAction(tr::lng_stats_title(tr::now), [=] {
-				if ([[maybe_unused]] const auto strong = weak.get()) {
-					using namespace Info;
-					controller->showSection(Statistics::Make(peer, {}, {}));
-				}
-			}, &st::menuIconStats);
-		}
 		if (canGetStats
 			|| channel->amCreator()
 			|| channel->canPostStories()) {
@@ -1292,13 +1278,6 @@ void Filler::addViewStatistics() {
 					controller->showSection(Info::Boosts::Make(peer));
 				}
 			}, &st::menuIconBoosts);
-		}
-		if (canViewEarn || canViewCreditsEarn) {
-			_addAction(tr::lng_channel_earn_title(tr::now), [=] {
-				if ([[maybe_unused]] const auto strong = weak.get()) {
-					controller->showSection(Info::ChannelEarn::Make(peer));
-				}
-			}, &st::menuIconEarn);
 		}
 	}
 }
@@ -1861,6 +1840,9 @@ void Filler::fillContextMenuActions() {
 	addToggleUnreadMark();
 	addToggleTopicClosed();
 	addToggleFolder();
+	if (!_topic) {
+		AyuUi::AddLockChatAction(_peer, _controller, _addAction);
+	}
 	if (const auto user = _peer->asUser()) {
 		if (!user->isContact()) {
 			addBlockUser();

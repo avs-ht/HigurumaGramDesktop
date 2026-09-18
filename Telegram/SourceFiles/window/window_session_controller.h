@@ -902,7 +902,6 @@ private:
 	std::unique_ptr<HistoryView::SubsectionTabs> _savedSubsectionTabs;
 	rpl::lifetime _savedSubsectionTabsLifetime;
 
-	rpl::lifetime _starGiftAuctionLifetime;
 	rpl::lifetime _showCloudPasswordLifetime;
 
 	rpl::lifetime _lifetime;
