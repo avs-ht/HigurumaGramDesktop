@@ -1861,6 +1861,9 @@ void Filler::fillContextMenuActions() {
 	addToggleUnreadMark();
 	addToggleTopicClosed();
 	addToggleFolder();
+	if (!_topic) {
+		AyuUi::AddLockChatAction(_peer, _controller, _addAction);
+	}
 	if (const auto user = _peer->asUser()) {
 		if (!user->isContact()) {
 			addBlockUser();

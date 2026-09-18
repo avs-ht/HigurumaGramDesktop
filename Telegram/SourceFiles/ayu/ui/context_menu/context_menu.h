@@ -40,6 +40,9 @@ void AddDeleteOwnMessagesAction(PeerData *peerData,
 								Data::ForumTopic *topic,
 								not_null<Window::SessionController*> sessionController,
 								const Window::PeerMenuCallback &addCallback);
+void AddLockChatAction(PeerData *peerData,
+						not_null<Window::SessionController*> sessionController,
+						const Window::PeerMenuCallback &addCallback);
 
 void AddHistoryAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item);
 void AddHideMessageAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item);

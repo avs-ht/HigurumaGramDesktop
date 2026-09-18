@@ -114,6 +114,8 @@ set(ayugram_files
         ayu/ayu_lang.h
         ayu/ayu_infra.cpp
         ayu/ayu_infra.h
+        ayu/features/lock/ayu_lock_controller.cpp
+        ayu/features/lock/ayu_lock_controller.h
         ayu/utils/ayu_crypto.cpp
         ayu/utils/ayu_crypto.h
         ayu/utils/ayu_mapper.cpp

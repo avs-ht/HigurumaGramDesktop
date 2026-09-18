@@ -56,6 +56,11 @@ void deleteAllExclusions();
 bool hasFilters();
 bool hasPerDialogFilters();
 
+void lockChat(ID dialogId);
+void unlockChat(ID dialogId);
+bool isChatLocked(ID dialogId);
+std::vector<ID> getAllLockedChatIds();
+
 void moveCurrentDatabase();
 
 }

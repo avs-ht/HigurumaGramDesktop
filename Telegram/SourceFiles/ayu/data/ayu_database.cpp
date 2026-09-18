@@ -207,6 +207,11 @@ auto storage = make_storage(
 		make_column("dialogId", &SpyMessageContentsRead::dialogId),
 		make_column("messageId", &SpyMessageContentsRead::messageId),
 		make_column("entityCreateDate", &SpyMessageContentsRead::entityCreateDate)
+	),
+	make_table<LockedChat>(
+		"LockedChat",
+		make_column("fakeId", &LockedChat::fakeId, primary_key().autoincrement()),
+		make_column("dialogId", &LockedChat::dialogId, unique())
 	)
 );
 
@@ -654,6 +659,57 @@ bool hasPerDialogFilters() {
 	} catch (std::exception &ex) {
 		LOG(("Failed to check if there's any filters: %1").arg(ex.what()));
 		return false;
+	}
+}
+
+void lockChat(ID dialogId) {
+	try {
+		if (isChatLocked(dialogId)) {
+			return;
+		}
+		storage.insert(LockedChat{ .dialogId = dialogId });
+	} catch (std::exception &ex) {
+		LOG(("Failed to lock chat for some reason: %1").arg(ex.what()));
+	}
+}
+
+void unlockChat(ID dialogId) {
+	try {
+		storage.remove_all<LockedChat>(
+			where(column<LockedChat>(&LockedChat::dialogId) == dialogId)
+		);
+	} catch (std::exception &ex) {
+		LOG(("Failed to unlock chat for some reason: %1").arg(ex.what()));
+	}
+}
+
+bool isChatLocked(ID dialogId) {
+	try {
+		return !storage.select(
+			columns(column<LockedChat>(&LockedChat::fakeId)),
+			where(column<LockedChat>(&LockedChat::dialogId) == dialogId),
+			limit(1)
+		).empty();
+	} catch (std::exception &ex) {
+		LOG(("Failed to check if chat is locked: %1").arg(ex.what()));
+		return false;
+	}
+}
+
+std::vector<ID> getAllLockedChatIds() {
+	try {
+		auto rows = storage.select(
+			columns(column<LockedChat>(&LockedChat::dialogId))
+		);
+		std::vector<ID> result;
+		result.reserve(rows.size());
+		for (auto &row : rows) {
+			result.push_back(std::get<0>(row));
+		}
+		return result;
+	} catch (std::exception &ex) {
+		LOG(("Failed to load locked chats: %1").arg(ex.what()));
+		return {};
 	}
 }
 

@@ -72,6 +72,15 @@ public:
 	int entityCreateDate;
 };
 
+// Locally-locked chat: requires the local passcode to open. Never synced
+// to Telegram's servers, purely a client-side UI gate.
+class LockedChat
+{
+public:
+	ID fakeId;
+	ID dialogId;
+};
+
 class RegexFilter
 {
 public:

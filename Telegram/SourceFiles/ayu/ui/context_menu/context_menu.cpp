@@ -17,6 +17,7 @@
 #include "ayu/features/forward/ayu_forward.h"
 #include "ayu/features/forward/ayu_forward_rich.h"
 #include "ayu/ui/context_menu/menu_item_subtext.h"
+#include "ayu/features/lock/ayu_lock_controller.h"
 #include "ayu/ui/message_history/history_section.h"
 #include "ayu/ui/settings/filters/edit_filter.h"
 #include "ayu/ui/settings/filters/settings_filters_list.h"
@@ -484,6 +485,29 @@ void AddDeleteOwnMessagesAction(PeerData *peerData,
 		tr::ayu_DeleteOwnMessages(tr::now),
 		DeleteMyMessagesHandler(sessionController, peerData),
 		&st::menuIconTTL);
+}
+
+void AddLockChatAction(PeerData *peerData,
+						not_null<Window::SessionController*> sessionController,
+						const Window::PeerMenuCallback &addCallback) {
+	if (!peerData) {
+		return;
+	}
+	if (!Ayu::Lock::IsSupported(sessionController)) {
+		// No local passcode set yet: there's nothing to unlock a locked
+		// chat with, so don't offer to lock one either.
+		return;
+	}
+	const auto history = peerData->owner().history(peerData);
+	const auto locked = Ayu::Lock::IsChatLocked(history);
+	addCallback(
+		locked
+			? QString::fromUtf8("Unlock chat")
+			: QString::fromUtf8("Lock chat"),
+		[=] {
+			Ayu::Lock::SetChatLocked(history, !locked);
+		},
+		&st::menuIconLock);
 }
 
 void AddHistoryAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
