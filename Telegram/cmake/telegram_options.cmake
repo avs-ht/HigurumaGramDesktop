@@ -4,6 +4,12 @@
 # For license and copyright information please follow this link:
 # https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
+# Privacy strip: force these on regardless of how the build is invoked, so
+# nobody has to remember -D flags to keep the app from phoning home for
+# updates or crash reports.
+set(DESKTOP_APP_DISABLE_AUTOUPDATE ON CACHE BOOL "Disable the autoupdater." FORCE)
+set(DESKTOP_APP_DISABLE_CRASH_REPORTS ON CACHE BOOL "Disable crash reporting." FORCE)
+
 option(TDESKTOP_API_TEST "Use test API credentials." OFF)
 set(TDESKTOP_API_ID "0" CACHE STRING "Provide 'api_id' for the Telegram API access.")
 set(TDESKTOP_API_HASH "" CACHE STRING "Provide 'api_hash' for the Telegram API access.")

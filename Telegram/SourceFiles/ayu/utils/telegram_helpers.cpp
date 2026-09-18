@@ -174,25 +174,22 @@ ID getBareID(not_null<PeerData*> peer) {
 	return peer->id.value & PeerId::kChatTypeMask;
 }
 
-bool isExteraPeer(ID peerId) {
-	return RCManager::getInstance().developers().contains(peerId) || RCManager::getInstance().channels().
-		contains(peerId);
+// Privacy strip: developer/supporter/custom badges are disabled outright,
+// regardless of the (now inert) RCManager state or its compiled-in default
+// ID lists.
+bool isExteraPeer(ID) {
+	return false;
 }
 
-bool isSupporterPeer(ID peerId) {
-	return RCManager::getInstance().supporters().contains(peerId) || RCManager::getInstance().supporterChannels().
-		contains(peerId);
+bool isSupporterPeer(ID) {
+	return false;
 }
 
-bool isCustomBadgePeer(ID peerId) {
-	return RCManager::getInstance().supporterCustomBadges().contains(peerId);
+bool isCustomBadgePeer(ID) {
+	return false;
 }
 
-CustomBadge getCustomBadge(ID peerId) {
-	const auto &badges = RCManager::getInstance().supporterCustomBadges();
-	if (const auto it = badges.find(peerId); it != badges.end()) {
-		return it->second;
-	}
+CustomBadge getCustomBadge(ID) {
 	return {};
 }
 

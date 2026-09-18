@@ -31,14 +31,11 @@ std::unordered_set<ID> default_channels = {
 };
 
 void RCManager::start() {
-	DEBUG_LOG(("RCManager: starting"));
-	_manager = std::make_unique<QNetworkAccessManager>();
-
-	makeRequest();
-
-	_timer = new QTimer(this);
-	connect(_timer, &QTimer::timeout, this, &RCManager::makeRequest);
-	_timer->start(60 * 60 * 1000); // 1 hour
+	// Privacy strip: RCManager is intentionally disabled. It used to poll
+	// update.ayugram.one (falling back to api.exteragram.app) once an hour
+	// for developer/supporter badges and donation info. No network request
+	// is made and no badges/donate data are ever populated.
+	DEBUG_LOG(("RCManager: disabled, not starting"));
 }
 
 void RCManager::makeRequest() {

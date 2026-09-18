@@ -8,7 +8,73 @@
 
 #include "ayu/data/entities.h"
 #include "ayu/libs/sqlite/sqlite_orm.h"
+#include "ayu/utils/ayu_crypto.h"
 #include "base/unixtime.h"
+
+namespace {
+
+// Privacy strip: DeletedMessage/EditedMessage content fields are encrypted
+// at rest (see ayu/utils/ayu_crypto.h). IDs, dates, flags and other
+// non-content columns stay in the clear since they're needed for querying,
+// sorting and indexing.
+void EncryptMessageFields(AyuMessageBase &message) {
+	message.fwdName = AyuCrypto::EncryptString(message.fwdName);
+	message.fwdPostAuthor = AyuCrypto::EncryptString(message.fwdPostAuthor);
+	message.postAuthor = AyuCrypto::EncryptString(message.postAuthor);
+	message.replySerialized = AyuCrypto::EncryptBlob(message.replySerialized);
+	message.replyMarkupSerialized = AyuCrypto::EncryptBlob(
+		message.replyMarkupSerialized);
+	message.text = AyuCrypto::EncryptString(message.text);
+	message.textEntities = AyuCrypto::EncryptBlob(message.textEntities);
+	message.mediaPath = AyuCrypto::EncryptString(message.mediaPath);
+	message.hqThumbPath = AyuCrypto::EncryptString(message.hqThumbPath);
+	message.documentSerialized = AyuCrypto::EncryptBlob(
+		message.documentSerialized);
+	message.thumbsSerialized = AyuCrypto::EncryptBlob(
+		message.thumbsSerialized);
+	message.documentAttributesSerialized = AyuCrypto::EncryptBlob(
+		message.documentAttributesSerialized);
+	message.mimeType = AyuCrypto::EncryptString(message.mimeType);
+}
+
+void DecryptMessageFields(AyuMessageBase &message) {
+	message.fwdName = AyuCrypto::DecryptString(message.fwdName);
+	message.fwdPostAuthor = AyuCrypto::DecryptString(message.fwdPostAuthor);
+	message.postAuthor = AyuCrypto::DecryptString(message.postAuthor);
+	message.replySerialized = AyuCrypto::DecryptBlob(message.replySerialized);
+	message.replyMarkupSerialized = AyuCrypto::DecryptBlob(
+		message.replyMarkupSerialized);
+	message.text = AyuCrypto::DecryptString(message.text);
+	message.textEntities = AyuCrypto::DecryptBlob(message.textEntities);
+	message.mediaPath = AyuCrypto::DecryptString(message.mediaPath);
+	message.hqThumbPath = AyuCrypto::DecryptString(message.hqThumbPath);
+	message.documentSerialized = AyuCrypto::DecryptBlob(
+		message.documentSerialized);
+	message.thumbsSerialized = AyuCrypto::DecryptBlob(
+		message.thumbsSerialized);
+	message.documentAttributesSerialized = AyuCrypto::DecryptBlob(
+		message.documentAttributesSerialized);
+	message.mimeType = AyuCrypto::DecryptString(message.mimeType);
+}
+
+template <typename T>
+std::vector<T> DecryptAll(std::vector<T> items) {
+	for (auto &item : items) {
+		DecryptMessageFields(item);
+	}
+	return items;
+}
+
+std::string ToLowerAscii(std::string s) {
+	for (auto &c : s) {
+		if (c >= 'A' && c <= 'Z') {
+			c = char(c - 'A' + 'a');
+		}
+	}
+	return s;
+}
+
+} // namespace
 
 using namespace sqlite_orm;
 auto storage = make_storage(
@@ -244,8 +310,10 @@ void initialize() {
 
 void addEditedMessage(const EditedMessage &message) {
 	try {
+		auto encrypted = message;
+		EncryptMessageFields(encrypted);
 		storage.begin_transaction();
-		storage.insert(message);
+		storage.insert(encrypted);
 		storage.commit();
 	} catch (std::exception &ex) {
 		try {
@@ -257,7 +325,7 @@ void addEditedMessage(const EditedMessage &message) {
 }
 
 std::vector<EditedMessage> getEditedMessages(ID userId, ID dialogId, ID messageId, ID minId, ID maxId, int totalLimit) {
-	return storage.get_all<EditedMessage>(
+	return DecryptAll(storage.get_all<EditedMessage>(
 		where(
 			column<EditedMessage>(&EditedMessage::userId) == userId and
 			column<EditedMessage>(&EditedMessage::dialogId) == dialogId and
@@ -267,7 +335,7 @@ std::vector<EditedMessage> getEditedMessages(ID userId, ID dialogId, ID messageI
 		),
 		order_by(column<EditedMessage>(&EditedMessage::fakeId)).desc(),
 		limit(totalLimit)
-	);
+	));
 }
 
 bool hasRevisions(ID userId, ID dialogId, ID messageId) {
@@ -289,8 +357,10 @@ bool hasRevisions(ID userId, ID dialogId, ID messageId) {
 
 void addDeletedMessage(const DeletedMessage &message) {
 	try {
+		auto encrypted = message;
+		EncryptMessageFields(encrypted);
 		storage.begin_transaction();
-		storage.insert(message);
+		storage.insert(encrypted);
 		storage.commit();
 	} catch (std::exception &ex) {
 		try {
@@ -303,7 +373,7 @@ void addDeletedMessage(const DeletedMessage &message) {
 
 std::vector<DeletedMessage> getDeletedMessages(ID userId, ID dialogId, ID topicId, ID minId, ID maxId, int totalLimit, const std::string &searchQuery) {
 	if (searchQuery.empty()) {
-		return storage.get_all<DeletedMessage>(
+		return DecryptAll(storage.get_all<DeletedMessage>(
 			where(
 				column<DeletedMessage>(&DeletedMessage::userId) == userId and
 				column<DeletedMessage>(&DeletedMessage::dialogId) == dialogId and
@@ -313,30 +383,36 @@ std::vector<DeletedMessage> getDeletedMessages(ID userId, ID dialogId, ID topicI
 			),
 			order_by(column<DeletedMessage>(&DeletedMessage::messageId)).desc(),
 			limit(totalLimit)
-		);
+		));
 	}
 
-	std::string escaped;
-	escaped.reserve(searchQuery.size());
-	for (const auto c : searchQuery) {
-		if (c == '%' || c == '_' || c == '\\') {
-			escaped += '\\';
-		}
-		escaped += c;
-	}
-	const auto pattern = "%" + escaped + "%";
-	return storage.get_all<DeletedMessage>(
+	// Privacy strip: `text` is encrypted at rest with a random nonce per
+	// row, so an SQL LIKE against the column can no longer match anything.
+	// Fetch the (still ID/date-filtered) candidates, decrypt them, and do
+	// the substring search in memory instead.
+	auto candidates = storage.get_all<DeletedMessage>(
 		where(
 			column<DeletedMessage>(&DeletedMessage::userId) == userId and
 			column<DeletedMessage>(&DeletedMessage::dialogId) == dialogId and
 			(column<DeletedMessage>(&DeletedMessage::topicId) == topicId or topicId == 0) and
 			(column<DeletedMessage>(&DeletedMessage::messageId) > minId or minId == 0) and
-			(column<DeletedMessage>(&DeletedMessage::messageId) < maxId or maxId == 0) and
-			like(column<DeletedMessage>(&DeletedMessage::text), pattern, "\\")
+			(column<DeletedMessage>(&DeletedMessage::messageId) < maxId or maxId == 0)
 		),
-		order_by(column<DeletedMessage>(&DeletedMessage::messageId)).desc(),
-		limit(totalLimit)
+		order_by(column<DeletedMessage>(&DeletedMessage::messageId)).desc()
 	);
+
+	const auto needle = ToLowerAscii(searchQuery);
+	std::vector<DeletedMessage> result;
+	for (auto &item : candidates) {
+		DecryptMessageFields(item);
+		if (ToLowerAscii(item.text).find(needle) != std::string::npos) {
+			result.push_back(item);
+			if (totalLimit > 0 && int(result.size()) >= totalLimit) {
+				break;
+			}
+		}
+	}
+	return result;
 }
 
 bool hasDeletedMessages(ID userId, ID dialogId, ID topicId) {

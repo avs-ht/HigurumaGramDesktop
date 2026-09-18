@@ -605,73 +605,12 @@ QString LastCrashedWindow::minidumpFileName() {
 void LastCrashedWindow::checkingFinished() {
 	if (_sendReply) return;
 
-	auto multipart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-	{
-		QString version = getReportField(qstr("version"), qstr("Version:"));
-		if (!version.isEmpty()) {
-			const auto sentryVersion = QString("ayugram-desktop@%1").arg(version);
-
-			QHttpPart reportPart;
-			reportPart.setHeader(QNetworkRequest::ContentDispositionHeader,
-			                     QVariant(u"form-data; name=\"%1\""_q.arg("sentry[release]")));
-			reportPart.setBody(sentryVersion.toUtf8());
-			multipart->append(reportPart);
-		}
-	}
-
-	{
-		QString dumpFile = minidumpFileName();
-		if (!dumpFile.isEmpty()) {
-			const auto dumpId = dumpFile.replace(".dmp", "");
-
-			QHttpPart reportPart;
-			reportPart.setHeader(QNetworkRequest::ContentDispositionHeader,
-			                     QVariant(u"form-data; name=\"%1\""_q.arg("sentry[tags][dump-id]")));
-			reportPart.setBody(dumpId.toUtf8());
-			multipart->append(reportPart);
-		}
-	}
-
-	QHttpPart reportPart;
-	reportPart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
-	reportPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"report\"; filename=\"report.txt\""));
-	reportPart.setBody(getCrashReportRaw());
-	multipart->append(reportPart);
-
-	QString dmpName = minidumpFileName();
-	if (!dmpName.isEmpty()) {
-		QFile file(_minidumpFull);
-		if (file.open(QIODevice::ReadOnly)) {
-			QByteArray minidump = file.readAll();
-			file.close();
-
-			QHttpPart dumpPart;
-			dumpPart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
-			dumpPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(u"form-data; name=\"upload_file_minidump\"; filename=\"%1\""_q.arg(dmpName)));
-			dumpPart.setBody(minidump);
-			multipart->append(dumpPart);
-
-			_minidump.setText(u"+ %1 (%2 KB)"_q.arg(dmpName).arg(minidump.size() / 1024));
-		}
-	}
-
-	_sendReply = _sendManager.post(QNetworkRequest(u"https://sentry.radolyn.com/api/2/minidump/?sentry_key=cad638b2ec4a692e57c3dcc4af1508bf"_q), multipart);
-	multipart->setParent(_sendReply);
-
-	connect(
-		_sendReply,
-		&QNetworkReply::errorOccurred,
-		[=](QNetworkReply::NetworkError code) { sendingError(code); });
-	connect(
-		_sendReply,
-		&QNetworkReply::finished,
-		[=] { sendingFinished(); });
-	connect(
-		_sendReply,
-		&QNetworkReply::uploadProgress,
-		[=](qint64 sent, qint64 total) { sendingProgress(sent, total); });
-
+	// Privacy strip: never upload the minidump/report.txt to
+	// sentry.radolyn.com (AyuGram's own Sentry instance). Show the same
+	// UI state as a failed send instead of making any network request.
+	LOG(("Crash report sending is disabled in this build."));
+	_pleaseSendReport.setText(u"Crash reporting is disabled in this build."_q);
+	_sendingState = SendingFail;
 	updateControls();
 }
 
